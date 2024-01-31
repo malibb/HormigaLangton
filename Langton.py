@@ -159,39 +159,59 @@ class HormigaLangton(object):
         manejador_archivos.guardar_archivo(archivoDTO, ruta_guardar_archivo.name)
         root.mainloop()
 
+    def calcular_entropia_shannon(densidades):
+        total = sum([sum(densidad) for densidad in densidades.values()])
+        if total == 0:
+            return 0
+
+        entropia = 0
+        for densidad in densidades.values():
+            for valor in densidad:
+                if valor > 0:
+                    p = valor / total
+                    entropia -= p * np.log2(p)
+        return entropia
+
     def mostrar_graficas(self):        
 
-        t = np.arange(1, self.generacion, 1)
-        s_soldado = self.hormigas_x_generacion['soldado'][1:self.generacion]
-        s_trabajadora = self.hormigas_x_generacion['trabajadora'][1:self.generacion]
-        s_reproductora = self.hormigas_x_generacion['reproductora'][1:self.generacion]
-        s_reina = self.hormigas_x_generacion['reina'][1:self.generacion]
+        t = np.arange(1, self.generacion + 1, 1)
+        densidades = {tipo: self.hormigas_x_generacion[tipo][1:self.generacion + 1] for tipo in self.hormigas_x_generacion}
+
+        entropias = [self.calcular_entropia_shannon({tipo: densidades[tipo][:i] for tipo in densidades}) for i in range(1, len(t) + 1)]
 
         fig, ax = plt.subplots()
-        ax.plot(t, s_soldado)
-        ax.plot(t, s_trabajadora)
-        ax.plot(t, s_reproductora)
-        ax.plot(t, s_reina)
+        for tipo, densidad in densidades.items():
+            ax.plot(t, densidad, label=tipo)
 
-        ax.set(xlabel='Generación', ylabel='Células',
-                title='Densidad de células')
+        ax2 = ax.twinx()
+        ax2.plot(t, entropias, label='Entropía', color='grey', linestyle='dashed')
+        
+        ax.set(xlabel='Generación', ylabel='Número de hormigas', title='Densidad de hormigas y Entropía de Shannon')
+        ax.legend(loc='upper left')
+        ax2.legend(loc='upper right')
         ax.grid()
-        plt.show()        
-
+        plt.show()
 
     def mostrar_graficas_continua(self):
         t = np.arange(1, self.generacion + 1, 1)
         densidades = {tipo: self.hormigas_x_generacion[tipo][1:self.generacion + 1] for tipo in self.hormigas_x_generacion}
 
+        entropias = [self.calcular_entropia_shannon({tipo: densidades[tipo][:i] for tipo in densidades}) for i in range(1, len(t) + 1)]
+
         fig, ax = plt.subplots()
         for tipo, densidad in densidades.items():
             ax.plot(t, densidad, label=tipo)
+
+        ax2 = ax.twinx()
+        ax2.plot(t, entropias, label='Entropía', color='grey', linestyle='dashed')
         
-        ax.set(xlabel='Generación', ylabel='Número de hormigas', title='Densidad de hormigas por tipo')
-        ax.legend()
+        ax.set(xlabel='Generación', ylabel='Número de hormigas', title='Densidad de hormigas y Entropía de Shannon')
+        ax.legend(loc='upper left')
+        ax2.legend(loc='upper right')
         ax.grid()
         plt.savefig('temp_grafica.png')
-        plt.close(fig) 
+        plt.close(fig)
+
 
     def cargar_grafica(self):
         grafica_imagen = pygame.image.load('temp_grafica.png')
