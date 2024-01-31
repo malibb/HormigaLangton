@@ -107,7 +107,7 @@ class HormigaReina(Hormiga):
         self.edad_reproductiva_min = edad_reproductiva_min
         self.edad_reproductiva_max = edad_reproductiva_max
 
-    def procesar_paso(self, grid, lista_reinas, lista_reproductoras):
+    def procesar_paso(self, grid, lista_reproductoras):
         """
         Procesa un paso de la hormiga reina, incluyendo la posibilidad de reproducción.
         
@@ -115,7 +115,6 @@ class HormigaReina(Hormiga):
 
         Parámetros:
             grid (numpy.ndarray): El grid en el que la hormiga se mueve, representando el espacio del autómata.
-            lista_reinas (list): Lista de todas las hormigas reinas en el grid.
             lista_reproductoras (list): Lista de todas las hormigas reproductoras en el grid.
 
         Retorna:

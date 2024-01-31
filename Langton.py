@@ -40,10 +40,10 @@ class HormigaLangton(object):
     FPS = 60
     FramePerSec = pygame.time.Clock()
 
-    def __init__(self, celulas_por_lado):
+    def __init__(self, celulas_por_lado, version):
 
-        self.largo_grid = 800
-        self.ancho_grid = 600
+        self.largo_grid = 1300
+        self.ancho_grid = 1100
         self.tamanio_superficie_grid = 540
         self.tamanio_superficie_desplegable = 500
         self.tamanio_celula = 10
@@ -57,7 +57,7 @@ class HormigaLangton(object):
         self.ants_worker_t_0 = []
         self.ants_breeder_t_0 = []
 
-        self.crear_hormigas_iniciales()
+        self.crear_hormigas_iniciales(tipo_generacion=version)
 
         self.zoom_val_desplegable = 1
         #Atributos para controlar la visualización de las células.
@@ -179,6 +179,24 @@ class HormigaLangton(object):
         plt.show()        
 
 
+    def mostrar_graficas_continua(self):
+        t = np.arange(1, self.generacion + 1, 1)
+        densidades = {tipo: self.hormigas_x_generacion[tipo][1:self.generacion + 1] for tipo in self.hormigas_x_generacion}
+
+        fig, ax = plt.subplots()
+        for tipo, densidad in densidades.items():
+            ax.plot(t, densidad, label=tipo)
+        
+        ax.set(xlabel='Generación', ylabel='Número de hormigas', title='Densidad de hormigas por tipo')
+        ax.legend()
+        ax.grid()
+        plt.savefig('temp_grafica.png')
+        plt.close(fig) 
+
+    def cargar_grafica(self):
+        grafica_imagen = pygame.image.load('temp_grafica.png')
+        return grafica_imagen
+        
     def scrollbar(self, scrollbar_selecionada, posicion_nueva):
         if scrollbar_selecionada:
             #print("Horizontal")
@@ -196,55 +214,42 @@ class HormigaLangton(object):
         self.inicio_x = int((self.posicion_scroll_horizontal - 40) * (self.celulas_por_lado) / 500)
         self.inicio_y = int((self.posicion_scroll_vertical - 40) * (self.celulas_por_lado) / 500)
 
+    def draw_scroll(self):
+        pygame.draw.rect(self.superficie_principal, self.sombra_boton, (40, 17, 500, 18))
+        pygame.draw.rect(self.superficie_principal, self.color_boton, (self.posicion_scroll_horizontal, 19, self.tamanio_grip, 14), border_radius = 8)
+        pygame.draw.rect(self.superficie_principal, self.sombra_boton, (17, 40, 18, 500))
+        pygame.draw.rect(self.superficie_principal, self.color_boton, (19, self.posicion_scroll_vertical, 14, self.tamanio_grip), border_radius = 8)
+
+    def ajustar_zoom(self, nuevo_zoom_val):
+        if not pygame.mouse.get_focused():
+            mouse_x, mouse_y = (0, 0)  # Centrar en el origen si el mouse no está enfocado
+        else:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            mouse_x = max(40, min(mouse_x, 40 + self.tamanio_superficie_desplegable))  # Asegurar que el mouse esté dentro del área visible
+            mouse_y = max(40, min(mouse_y, 40 + self.tamanio_superficie_desplegable))
+
+        # Convertir la posición del mouse en coordenadas del grid
+        rel_x = (mouse_x - 40) / (self.zoom_val * self.tamanio_superficie_desplegable / self.celulas_desplegadas)
+        rel_y = (mouse_y - 40) / (self.zoom_val * self.tamanio_superficie_desplegable / self.celulas_desplegadas)
+
+        # Ajustar inicio_x e inicio_y para centrar sobre el punto bajo el cursor del mouse
+        self.inicio_x = int(max(0, min(self.inicio_x + rel_x - self.celulas_desplegadas / 2, self.celulas_por_lado - self.celulas_desplegadas)))
+        self.inicio_y = int(max(0, min(self.inicio_y + rel_y - self.celulas_desplegadas / 2, self.celulas_por_lado - self.celulas_desplegadas)))
+
+        self.zoom_val = nuevo_zoom_val
+        self.celulas_desplegadas = self.tamanio_superficie_desplegable // self.zoom_val
+        self.tamanio_grip = (self.celulas_desplegadas / self.celulas_por_lado) * self.tamanio_superficie_grid
+
     def zoom_in(self):
-        
         if self.zoom_val < 10:
-
-            if self.zoom_val == 1:
-                self.zoom_val = 5
-                self.inicio_x += 125
-                self.inicio_y += 125       
-                self.celulas_desplegadas = 250            
-
-            elif self.zoom_val == 5:
-                self.zoom_val = 10
-                self.inicio_x += 100
-                self.inicio_y += 100       
-                self.celulas_desplegadas = 50
-
-            if self.inicio_x + self.celulas_desplegadas > self.celulas_por_lado:
-                self.inicio_x -= self_inicio_x - self.celulas_desplegadas - self.celulas_por_lado
-            if self.inicio_y + self.celulas_desplegadas > self.celulas_por_lado:
-                self.inicio_y -= self_inicio_y - self.celulas_desplegadas - self.celulas_por_lado
-            
-            #Se modifica el tamaño del grip del scrollbar para que se visualice correctamente.
-            self.tamanio_grip = (self.celulas_desplegadas/self.celulas_por_lado)*self.tamanio_superficie_grid
+            nuevo_zoom_val = 5 if self.zoom_val == 1 else 10
+            self.ajustar_zoom(nuevo_zoom_val)
 
     def zoom_out(self):
-        
         if self.zoom_val > 1:
+            nuevo_zoom_val = 1 if self.zoom_val == 5 else 5
+            self.ajustar_zoom(nuevo_zoom_val)
 
-            if self.zoom_val == 10:
-                self.zoom_val = 5
-                self.inicio_x -= 100
-                self.inicio_y -= 100       
-                self.celulas_desplegadas = 250            
-
-            elif self.zoom_val == 5:
-                self.zoom_val = 1
-                self.inicio_x -= 125
-                self.inicio_y -= 125       
-                self.celulas_desplegadas = 500
-
-            if self.inicio_x < 0:
-                self.inicio_x = 0
-            if self.inicio_y < 0:
-                self.inicio_y = 0
-            
-            #Se modifica el tamaño del grip del scrollbar para que se visualice correctamente.
-            self.tamanio_grip = (self.celulas_desplegadas/self.celulas_por_lado)*self.tamanio_superficie_grid
-
-    
     def activar_pausa(self):
         tamanio_borde = 7
         if self.pausa:
@@ -252,13 +257,13 @@ class HormigaLangton(object):
             pygame.draw.rect(self.screen, self.sombra_boton, (self.pos_x_gui, self.pos_y_gui+5, self.tamanio_boton_x, self.tamanio_boton_y), border_radius = tamanio_borde)
             pygame.draw.rect(self.screen, self.color_boton, (self.pos_x_gui, self.pos_y_gui, self.tamanio_boton_x, self.tamanio_boton_y), border_radius = tamanio_borde)
             pausa_text_surface, pausa_text_rect = self.font.render('Pausa', (255, 255, 255))
-            self.screen.blit(pausa_text_surface, (self.pos_x_gui+71, self.pos_relativa_y_letras))
+            self.screen.blit(pausa_text_surface, (self.pos_x_gui+self.pos_relativa_x_letras, self.pos_relativa_y_letras))
         else:
             self.pausa = True
             pygame.draw.rect(self.screen, self.sombra_boton_desactivado, (self.pos_x_gui, self.pos_y_gui+5, self.tamanio_boton_x, self.tamanio_boton_y), border_radius = tamanio_borde)
             pygame.draw.rect(self.screen, self.color_boton_desactivado, (self.pos_x_gui, self.pos_y_gui, self.tamanio_boton_x, self.tamanio_boton_y), border_radius = tamanio_borde)
             pausa_text_surface, pausa_text_rect = self.font.render('Pausa', (255, 255, 255))
-            self.screen.blit(pausa_text_surface, (self.pos_x_gui+71, self.pos_relativa_y_letras))
+            self.screen.blit(pausa_text_surface, (self.pos_x_gui+self.pos_relativa_x_letras, self.pos_relativa_y_letras))
     
     def manejo_click(self):
         posicion_mouse = pygame.mouse.get_pos()
@@ -284,7 +289,6 @@ class HormigaLangton(object):
             #print("Modificacion celula.")
             #self.modificar_valor_celula(posicion_mouse)
             pass
-
         #Se verifica si es una posición donde se encuentra algún botón.
         #self.distancia_entre_boton = 60
         #self.tamanio_boton_x = 190
@@ -299,12 +303,6 @@ class HormigaLangton(object):
                posicion_mouse[1] >= self.pos_y_gui and posicion_mouse[1] <= self.pos_y_gui + self.tamanio_boton_y):
                 #print("Boton pausa presionado.")
                 self.activar_pausa()
-            
-            #Cambiar regla.
-            elif(posicion_mouse[0] >= self.pos_x_gui and posicion_mouse[0] <= self.pos_x_gui + self.tamanio_boton_x and 
-               posicion_mouse[1] >= self.pos_y_gui+self.distancia_entre_boton and posicion_mouse[1] <= self.pos_y_gui + self.tamanio_boton_y+self.distancia_entre_boton):
-                #print("Boton cambio de regla presionado.")
-                self.cambiar_regla()
 
             #Cargar archivo.
             elif(posicion_mouse[0] >= self.pos_x_gui and posicion_mouse[0] <= self.pos_x_gui + self.tamanio_boton_x and 
@@ -315,7 +313,7 @@ class HormigaLangton(object):
             #Guardar archivo.
             elif(posicion_mouse[0] >= self.pos_x_gui and posicion_mouse[0] <= self.pos_x_gui + self.tamanio_boton_x and 
                posicion_mouse[1] >= self.pos_y_gui+3*self.distancia_entre_boton and posicion_mouse[1] <= self.pos_y_gui + self.tamanio_boton_y+3*self.distancia_entre_boton):
-                #print("Boton guardar archivo presionado.")
+                print("Boton guardar archivo presionado.")
                 self.guardar_configuracion()
 
             #Activar densidad.
@@ -335,32 +333,42 @@ class HormigaLangton(object):
                posicion_mouse[1] >= self.pos_y_gui+6*self.distancia_entre_boton and posicion_mouse[1] <= self.pos_y_gui + self.tamanio_boton_y+6*self.distancia_entre_boton):
                 #print("Botón mostrar gráficas presionado.")
                 self.mostrar_graficas()
+        self.draw_scroll()
 
-
-    def crear_hormigas_iniciales(self):
-        
-        numero_hormigas = random.randint(1, 100)
-        for i in range(numero_hormigas):
-            x = random.randint(0, 20)
-            y = random.randint(0, 20)
-            orientacion = random.randint(0, 3)
-            vida_maxima = random.randint(1, 100000)
-            tipo_hormiga = random.choice([0, 1, 2, 3]) #Soldado, Trabajadora, Reproductora, Reina
-            if(tipo_hormiga == 0):
-                self.ants_soldier_t_0.append(Hormiga(x, y, orientacion, vida_maxima))
-            elif(tipo_hormiga == 1):
-                self.ants_worker_t_0.append(Hormiga(x, y, orientacion, vida_maxima))
-            elif(tipo_hormiga == 2):
-                self.ants_breeder_t_0.append(Hormiga(x, y, orientacion, vida_maxima))
-            else:
-                edad_reproductiva_min = random.randint(0, vida_maxima-1)
-                edad_reproductiva_max = random.randint(edad_reproductiva_min, vida_maxima)
-                self.ants_queen_t_0.append(HormigaReina(x, y, orientacion, vida_maxima, edad_reproductiva_min, edad_reproductiva_max))
+    def crear_hormigas_iniciales(self, tipo_generacion):
+        if (tipo_generacion == 'original'):
+            numero_hormigas = random.randint(1, 100)
+            for i in range(numero_hormigas):
+                x = random.randint(0, 20)
+                y = random.randint(0, 20)
+                orientacion = random.randint(0, 3)
+                vida_maxima = random.randint(1, 100000)
+                tipo_hormiga = random.choice([0, 1, 2, 3]) #Soldado, Trabajadora, Reproductora, Reina
+                if(tipo_hormiga == 0):
+                    self.ants_soldier_t_0.append(Hormiga(x, y, orientacion, vida_maxima))
+        elif (tipo_generacion == 'variacion'):
+            numero_hormigas = random.randint(1, 100)
+            for i in range(numero_hormigas):
+                x = random.randint(0, 20)
+                y = random.randint(0, 20)
+                orientacion = random.randint(0, 3)
+                vida_maxima = random.randint(1, 100000)
+                tipo_hormiga = random.choice([0, 1, 2, 3]) #Soldado, Trabajadora, Reproductora, Reina
+                if(tipo_hormiga == 0):
+                    self.ants_soldier_t_0.append(Hormiga(x, y, orientacion, vida_maxima))
+                elif(tipo_hormiga == 1):
+                    self.ants_worker_t_0.append(Hormiga(x, y, orientacion, vida_maxima))
+                elif(tipo_hormiga == 2):
+                    self.ants_breeder_t_0.append(Hormiga(x, y, orientacion, vida_maxima))
+                else:
+                    edad_reproductiva_min = random.randint(0, vida_maxima-1)
+                    edad_reproductiva_max = random.randint(edad_reproductiva_min, vida_maxima)
+                    self.ants_queen_t_0.append(HormigaReina(x, y, orientacion, vida_maxima, edad_reproductiva_min, edad_reproductiva_max))
 
     def crear_nuevas_hormigas(self, nuevas_hormigas):
         for i in range(nuevas_hormigas):
-            x = random.randint(0, self.celulas_por_lado)
-            y = random.randint(0, self.celulas_por_lado)
+            x = random.randint(0, 20)
+            y = random.randint(0, 20)
             orientacion = random.randint(0, 3)
             vida_maxima = random.randint(1, 10000)
             tipo_hormiga = random.choice([0, 1, 2, 3]) #Soldado, Trabajadora, Reproductora, Reina
@@ -379,7 +387,7 @@ class HormigaLangton(object):
 
         pygame.init()
         pygame.display.set_caption('Hormiga de Langton')
-        self.font = pygame.freetype.Font('Roboto/Roboto-Light.ttf', 16)
+        self.font = pygame.freetype.Font('Roboto/Roboto-Light.ttf', 12)
         
         self.screen = pygame.display.set_mode((self.largo_grid, self.ancho_grid))
         #self.screen.set_alpha(128)
@@ -406,37 +414,38 @@ class HormigaLangton(object):
 
         tamanio_borde = 7
         self.distancia_entre_boton = 60
-        self.tamanio_boton_x = 190
-        self.tamanio_boton_y = 32
+        self.tamanio_boton_x = 70
+        self.tamanio_boton_y = 28
 
-        self.pos_x_gui = 570
+        self.pos_x_gui = 560
         self.pos_y_gui = 37
 
         self.pos_relativa_y_letras = 48
+        self.pos_relativa_x_letras = 5
 
         #Pausa
         pygame.draw.rect(self.screen, self.sombra_boton_desactivado, (self.pos_x_gui, self.pos_y_gui+5, self.tamanio_boton_x, self.tamanio_boton_y), border_radius = tamanio_borde)
         pygame.draw.rect(self.screen, self.color_boton_desactivado, (self.pos_x_gui, self.pos_y_gui, self.tamanio_boton_x, self.tamanio_boton_y), border_radius = tamanio_borde)
         pausa_text_surface, pausa_text_rect = self.font.render('Pausa', (255, 255, 255))
-        self.screen.blit(pausa_text_surface, (self.pos_x_gui+71, self.pos_relativa_y_letras))
+        self.screen.blit(pausa_text_surface, (self.pos_x_gui+self.pos_relativa_x_letras, self.pos_relativa_y_letras))
 
         #Cargar archivo
         pygame.draw.rect(self.screen, self.sombra_boton, (self.pos_x_gui, self.pos_y_gui+5+2*self.distancia_entre_boton, self.tamanio_boton_x, self.tamanio_boton_y), border_radius = tamanio_borde)
         pygame.draw.rect(self.screen, self.color_boton, (self.pos_x_gui, self.pos_y_gui+2*self.distancia_entre_boton, self.tamanio_boton_x, self.tamanio_boton_y), border_radius = tamanio_borde)
         cargar_archivo_text_surface, cargar_archivo_text_rect = self.font.render('Cargar archivo', (255, 255, 255))
-        self.screen.blit(cargar_archivo_text_surface, (self.pos_x_gui+43, self.pos_relativa_y_letras+2*self.distancia_entre_boton))
+        self.screen.blit(cargar_archivo_text_surface, (self.pos_x_gui+self.pos_relativa_x_letras, self.pos_relativa_y_letras+2*self.distancia_entre_boton))
 
         #Guardar archivo
         pygame.draw.rect(self.screen, self.sombra_boton, (self.pos_x_gui, self.pos_y_gui+5+3*self.distancia_entre_boton, self.tamanio_boton_x, self.tamanio_boton_y), border_radius = tamanio_borde)
         pygame.draw.rect(self.screen, self.color_boton, (self.pos_x_gui, self.pos_y_gui+3*self.distancia_entre_boton, self.tamanio_boton_x, self.tamanio_boton_y), border_radius = tamanio_borde)
         guardar_archivo_text_surface, guardar_archivo_text_rect = self.font.render('Guardar archivo', (255, 255, 255))
-        self.screen.blit(guardar_archivo_text_surface, (self.pos_x_gui+40, self.pos_relativa_y_letras+3*self.distancia_entre_boton))
+        self.screen.blit(guardar_archivo_text_surface, (self.pos_x_gui+self.pos_relativa_x_letras, self.pos_relativa_y_letras+3*self.distancia_entre_boton))
 
         #Mostrar gráficas
         pygame.draw.rect(self.screen, self.sombra_boton, (self.pos_x_gui, self.pos_y_gui+5+6*self.distancia_entre_boton, self.tamanio_boton_x, self.tamanio_boton_y), border_radius = tamanio_borde)
         pygame.draw.rect(self.screen, self.color_boton, (self.pos_x_gui, self.pos_y_gui+6*self.distancia_entre_boton, self.tamanio_boton_x, self.tamanio_boton_y), border_radius = tamanio_borde)
         generar_atractores_text_surface, generar_atractores_text_rect = self.font.render('Mostrar gráficas', (255, 255, 255))
-        self.screen.blit(generar_atractores_text_surface, (self.pos_x_gui+40, self.pos_relativa_y_letras+6*self.distancia_entre_boton))
+        self.screen.blit(generar_atractores_text_surface, (self.pos_x_gui+self.pos_relativa_x_letras, self.pos_relativa_y_letras+6*self.distancia_entre_boton))
 
 
         #Ayuda
@@ -446,7 +455,6 @@ class HormigaLangton(object):
         self.screen.blit(generar_atractores_text_surface, (self.pos_x_gui, self.pos_relativa_y_letras+8*self.distancia_entre_boton))
         """
 
-        #Manejo de superficie de desplegado de autómata.
         self.superficie_principal = pygame.Surface((self.tamanio_superficie_grid, self.tamanio_superficie_grid))
         self.superficie_principal.fill(self.background_color)
         #   Scrollbar
@@ -494,6 +502,10 @@ class HormigaLangton(object):
                 # print("Celulas: ", np.sum(self.grid_t_0))          
                 # resultados = OptimizacionesC.evaluar(self.grid_t_0, self.B, self.S)
                 #self.grid_t_1 = self.evaluate_langton_step(self.grid_t_0)
+                self.mostrar_graficas_continua()
+                grafica_imagen = self.cargar_grafica()
+                self.screen.blit(grafica_imagen, (660, 40))  # Especifica la posición adecuada
+
                 print('Generación: ' + str(self.generacion))
 
                 self.grid_t_1 = self.grid_t_0.copy()
@@ -569,7 +581,7 @@ class HormigaLangton(object):
                 self.ants_queen_t_1 = []
                 nuevas_hormigas = 0
                 for hormiga in self.ants_queen_t_0:
-                    valor_grid, informacion_hormiga, nuevas_hormigas = hormiga.procesar_paso(self.grid_t_0, self.ants_queen_t_0, self.ants_breeder_t_0)
+                    valor_grid, informacion_hormiga, nuevas_hormigas = hormiga.procesar_paso(self.grid_t_0, self.ants_breeder_t_0)
                     self.ants_queen_t_1.append(
                         HormigaReina(
                             informacion_hormiga['posicion'][0], 
@@ -616,22 +628,31 @@ class HormigaLangton(object):
             surf_celulas = pygame.surfarray.make_surface(self.grid_t_1[self.inicio_x:self.inicio_x + self.celulas_desplegadas, self.inicio_y:self.inicio_y+self.celulas_desplegadas])
             self.superficie_principal.blit(pygame.transform.scale(surf_celulas, (self.tamanio_superficie_desplegable, self.tamanio_superficie_desplegable)), (40, 40))
 
-
+            self.screen.blit(self.superficie_principal, (0, 0))
+            
             pygame.display.update()
             self.FramePerSec.tick(self.FPS)
 
 if __name__ == '__main__':
-        
-    print("El número de células por lado debe ser mínimo 1000 y máximo 5000, además debe ser múltiplo de 500.")        
-    is_valido = False
-    while(not is_valido):
-        celulas_por_lado = int(input("Ingresa el número de células por lado: "))
-        if celulas_por_lado >= 0 and celulas_por_lado <= 5000:
-            is_valido = True
-        else:
-            print("Número de células por lado inválido. Por favor ingresa un número válido con las reglas mostradas al inicio.")
+    version = input("Esta es una simulación de la hormiga de Langton. ¿Quieres la versión 'original' o la 'variante'? Escribe cualquiera de los dos para comenzar: ").strip().lower()
+    
+    while version not in ['original', 'variante']:
+        print("Por favor, escribe 'original' o 'variante'.")
+        version = input("¿Qué versión deseas ejecutar? ").strip().lower()
 
-    hormiga_langton = HormigaLangton(celulas_por_lado)
+    print("Ingresa el número de células por lado. El valor debe ser un entero entre 1000 y 5000, y debe ser múltiplo de 500.")        
+    is_valido = False
+    while not is_valido:
+        try:
+            celulas_por_lado = int(input("Ingresa el número de células por lado: "))
+            if 1000 <= celulas_por_lado <= 5000 and celulas_por_lado % 500 == 0:
+                is_valido = True
+            else:
+                print("Número de células por lado inválido. Debe estar entre 1000 y 5000 y ser múltiplo de 500.")
+        except ValueError:
+            print("Por favor, ingresa un número válido.")
+
+    hormiga_langton = HormigaLangton(celulas_por_lado, version)
     hormiga_langton.iniciar()
 
     #generador = GeneradorArboles("B3/S23")
